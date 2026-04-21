@@ -398,6 +398,28 @@
   // esptool-js ESM bundle from jsDelivr. Uses Web Serial directly.
   import { ESPLoader, Transport } from "https://cdn.jsdelivr.net/npm/esptool-js@0.5.3/+esm";
 
+  // ---------- Auto-refresh on new deployment ----------
+  // HEAD the current page with forced revalidation; if the server's ETag has
+  // changed since last visit, reload once with a cache-bust query so the user
+  // is never stuck on a stale build. sessionStorage guard stops reload loops.
+  (async () => {
+    try {
+      const SKEY = "wf_auto_refreshed";
+      if (sessionStorage.getItem(SKEY)) return;
+      const r = await fetch(location.pathname, { method: "HEAD", cache: "no-cache" });
+      const latest = r.headers.get("etag");
+      if (!latest) return;
+      const prev = localStorage.getItem("wf_etag");
+      if (prev && prev !== latest) {
+        localStorage.setItem("wf_etag", latest);
+        sessionStorage.setItem(SKEY, "1");
+        location.replace(location.pathname + "?v=" + Date.now());
+        return;
+      }
+      if (!prev) localStorage.setItem("wf_etag", latest);
+    } catch (_) { /* offline or HEAD blocked — just continue */ }
+  })();
+
   // ---------- DOM ----------
   const consoleOut   = document.getElementById("consoleOut");
   const listFw       = document.getElementById("listFw");
