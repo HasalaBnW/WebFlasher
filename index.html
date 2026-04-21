@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>BnW_FirmwareUpdater</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
+<style>
+  :root {
+    /* ----------------------------------------------------------
+       Light theme — professional palette inspired by Linear,
+       Vercel, Stripe. Anchored on MediumSlateBlue #7b68ee and
+       balanced against a pure-white surface on a cool near-white
+       page. Purple ramp is a custom 50–800 scale tuned so every
+       step is WCAG-visible against both black text and white bg.
+       ---------------------------------------------------------- */
+
+    /* Purple ramp — MediumSlateBlue is 500 */
+    --purple-50:  #f4f1ff;   /* soft hover tint / selection bg */
+    --purple-100: #e9e3ff;   /* pressed tint, focus ring fill */
+    --purple-200: #d3c8ff;
+    --purple-300: #b9a9ff;
+    --purple-400: #9c86f5;
+    --purple-500: #7b68ee;   /* MediumSlateBlue — primary */
+    --purple-600: #6651d6;
+    --purple-700: #5240b8;
+    --purple-800: #3e3094;
+
+    /* Neutrals */
+    --ink-900: #0a0a0f;      /* primary text */
+    --ink-700: #3f3f46;      /* secondary text */
+    --ink-500: #71717a;      /* muted text */
+    --ink-300: #d4d4da;      /* stronger borders */
+    --ink-200: #e4e4ea;      /* default borders */
+    --ink-100: #f2f2f5;      /* subtle surface */
+    --ink-50:  #fafafb;      /* page background */
+    --white:   #ffffff;
+    --black:   #000000;
+
+    /* Role aliases */
+    --purple:        var(--purple-500);
+    --purple-light:  var(--purple-400);
+    --purple-dark:   var(--purple-600);
+    --purple-deep:   var(--purple-700);
+    --purple-soft:   var(--purple-50);
+
+    --bg:            var(--ink-50);
+    --surface:       var(--white);
+    --text:          var(--ink-900);
+    --text-muted:    var(--ink-500);
+    --line:          var(--ink-200);
+    --line-strong:   var(--ink-300);
+
+    --btn-bg:            var(--white);
+    --btn-border:        var(--ink-200);
+    --btn-hover:         var(--purple-50);
+    --btn-hover-border:  var(--purple-300);
+    --btn-active:        var(--purple-100);
+
+    /* Console kept identical to the WinForms RichTextBox: black bg, MediumSlateBlue fg */
+    --console-bg:    var(--black);
+    --console-fg:    var(--purple-500);
+
+    /* Legacy aliases (older rules still reference these names) */
+    --text-soft:     var(--text-muted);
+    --text-primary:  var(--text);
+    --grey-bg:       var(--bg);
+    --grey-line:     var(--line);
+    --grey-mid:      var(--text-muted);
+    --grey-text:     var(--text);
+    --ink-2:         var(--surface);
+    --ink-3:         var(--purple-50);
+    --ink-4:         var(--purple-100);
+
+    --font-ui:   "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --font-mono: "JetBrains Mono", Consolas, "Courier New", monospace;
+
+    /* Shadow tokens — single source for the whole UI */
+    --shadow-xs: 0 1px 2px rgba(20, 14, 45, 0.05);
+    --shadow-sm: 0 1px 3px rgba(20, 14, 45, 0.08), 0 1px 2px rgba(20, 14, 45, 0.04);
+    --shadow-md: 0 4px 16px rgba(20, 14, 45, 0.10), 0 2px 4px rgba(20, 14, 45, 0.05);
+    --shadow-lg: 0 16px 40px rgba(20, 14, 45, 0.14), 0 4px 10px rgba(20, 14, 45, 0.06);
+    --shadow-purple: 0 8px 24px rgba(123, 104, 238, 0.28);
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; background: var(--bg);
+    -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+  body {
+    font-family: var(--font-ui);
+    font-feature-settings: "cv11", "ss01", "ss03";
+    color: var(--text);
+    user-select: none;
+    letter-spacing: -0.005em;
+    display: grid;
+    place-items: center;
+  }
+  /* Fixed 680×993 design canvas — scaled uniformly to fit the viewport. */
+  .stage {
+    width: 680px;
+    height: 993px;
+    position: relative;
+    transform-origin: center center;
+  }
+
+  /* Modern button — white surface with soft shadow + purple accent on hover.
+     Inspired by Linear/Vercel/Tesla UI: rounded corners, layered shadows,
+     subtle lift on hover, compression on click. */
+  .btn {
+    background: var(--btn-bg);
+    border: 1px solid var(--btn-border);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-weight: 400;
+    letter-spacing: -0.005em;
+    cursor: pointer;
+    padding: 0;
+    border-radius: 10px;
+    box-shadow: var(--shadow-xs);
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease,
+      box-shadow 160ms ease,
+      transform 120ms ease;
+    outline: none;
+  }
+  .btn:hover:not(:disabled) {
+    background: var(--btn-hover);
+    border-color: var(--btn-hover-border);
+    color: var(--purple-700);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+  }
+  .btn:focus-visible {
+    box-shadow: 0 0 0 3px rgba(123, 104, 238, 0.30);
+    border-color: var(--purple);
+  }
+  .btn:active:not(:disabled) {
+    background: var(--btn-active);
+    transform: translateY(0);
+    box-shadow: inset 0 2px 4px rgba(82, 64, 184, 0.15);
+    transition-duration: 60ms;
+  }
+  .btn:disabled {
+    color: var(--text-muted);
+    cursor: not-allowed;
+    box-shadow: none;
+    opacity: 0.6;
+  }
+
+  /* Primary variant — solid purple with coloured glow */
+  .btn.primary {
+    background: var(--purple-500);
+    border-color: var(--purple-600);
+    color: var(--white);
+    box-shadow: var(--shadow-purple), inset 0 1px 0 rgba(255,255,255,0.18);
+  }
+  .btn.primary:hover:not(:disabled) {
+    background: var(--purple-600);
+    border-color: var(--purple-700);
+    color: var(--white);
+    box-shadow: 0 12px 30px rgba(123, 104, 238, 0.36), inset 0 1px 0 rgba(255,255,255,0.15);
+    transform: translateY(-1px);
+  }
+  .btn.primary:active:not(:disabled) {
+    background: var(--purple-700);
+    box-shadow: inset 0 2px 4px rgba(28, 20, 70, 0.25);
+    transform: translateY(0);
+  }
+
+  /* Absolute-positioned controls to match WinForms designer coordinates */
+  #btnConnect {
+    position: absolute; left: 12px; top: 12px;
+    width: 260px; height: 50px;
+    font-size: 15px; font-weight: 450;
+    letter-spacing: 0.2px;
+  }
+  #btnDisconnect {
+    position: absolute; left: 282px; top: 12px;
+    width: 120px; height: 50px;
+    font-size: 13px;
+    display: none;
+  }
+  #btnDisconnect.visible { display: block; }
+  #btnConnect.connected {
+    background: var(--purple-500);
+    border-color: var(--purple-600);
+    color: var(--white);
+    box-shadow: var(--shadow-purple), inset 0 1px 0 rgba(255,255,255,0.18);
+  }
+  #btnConnect.connected:hover:not(:disabled) {
+    background: var(--purple-600);
+    border-color: var(--purple-700);
+    color: var(--white);
+    box-shadow: 0 12px 30px rgba(123, 104, 238, 0.36), inset 0 1px 0 rgba(255,255,255,0.15);
+  }
+  #lnkDrivers {
+    position: absolute; left: 14px; top: 74px;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--purple);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+  #lnkDrivers:hover { color: var(--purple-light); }
+  #logo {
+    position: absolute; right: 14px; top: 10px;
+    height: 70px;
+    user-select: none;
+    pointer-events: none;
+  }
+  #btnRetrieve {
+    position: absolute; left: 12px; top: 134px;
+    width: 653px; height: 92px;
+    font-size: 17px; font-weight: 450;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  #listFw {
+    position: absolute; left: 12px; top: 243px;
+    width: 653px; height: 220px;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow-y: auto;
+    font-family: var(--font-ui);
+    font-size: 13px;
+  }
+  #listFw::-webkit-scrollbar { width: 10px; }
+  #listFw::-webkit-scrollbar-thumb { background: var(--ink-300); border-radius: 6px; }
+  #listFw::-webkit-scrollbar-thumb:hover { background: var(--purple-300); }
+  #listFw::-webkit-scrollbar-track { background: transparent; }
+  #listFw .item {
+    padding: 4px 12px;
+    height: 30px;
+    line-height: 22px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background 120ms ease, color 120ms ease;
+  }
+  #listFw .item:hover:not(.placeholder):not(.selected) { background: var(--purple-50); color: var(--purple-700); }
+  #listFw .item.selected {
+    background: linear-gradient(90deg, var(--purple) 0%, var(--purple-dark) 100%);
+    color: #fff;
+  }
+  #listFw .item.placeholder { color: var(--text-soft); font-style: italic; cursor: default; }
+
+  #btnFlashV8, #btnFlashDongle {
+    position: absolute; top: 472px;
+    height: 100px; font-size: 18px;
+    font-weight: 450;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  #btnFlashV8     { left: 12px;  width: 292px; }
+  #btnFlashDongle { left: 371px; width: 294px; }
+  #consoleOut {
+    position: absolute; left: 12px; top: 588px;
+    width: 653px; height: 323px;
+    background: var(--console-bg);
+    color: var(--console-fg);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 1.45;
+    padding: 12px 14px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    border: 1px solid var(--ink-900);
+    border-radius: 10px;
+    box-shadow:
+      var(--shadow-md),
+      inset 0 0 0 1px rgba(123, 104, 238, 0.14),
+      inset 0 10px 24px rgba(123, 104, 238, 0.06);
+    user-select: text;
+    -webkit-user-select: text;
+    cursor: text;
+  }
+  #consoleOut::selection { background: var(--purple); color: #fff; }
+  #btnReadChip {
+    position: absolute; left: 12px; top: 920px;
+    width: 158px; height: 61px;
+    font-size: 14px;
+    display: none; /* Visible=false in original */
+  }
+  #lblFooter {
+    position: absolute; left: 0; right: 0; top: 952px;
+    text-align: center;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--text-soft);
+    line-height: 1.3;
+  }
+
+  /* Modal */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(20, 14, 45, 0.45);
+    backdrop-filter: blur(2px);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100;
+  }
+  .modal-backdrop.show { display: flex; }
+  .modal-box {
+    background: var(--white);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    min-width: 380px;
+    max-width: 80%;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+  }
+  .modal-header {
+    background: var(--white);
+    padding: 14px 18px;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: -0.005em;
+    border-bottom: 1px solid var(--line);
+    color: var(--text);
+  }
+  .modal-body { padding: 18px; color: var(--text); }
+  .modal-footer {
+    padding: 12px 18px;
+    border-top: 1px solid var(--line);
+    text-align: right;
+    background: var(--ink-50);
+    display: flex; justify-content: flex-end; gap: 8px;
+  }
+  .modal-footer .btn { min-width: 80px; height: 28px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+<button id="btnConnect" class="btn">Connect to Board</button>
+<button id="btnDisconnect" class="btn" title="Revoke access to this port">Disconnect</button>
+<a id="lnkDrivers" href="https://www.silabs.com/software-and-tools/usb-to-uart-bridge-vcp-drivers?tab=downloads" target="_blank" rel="noopener">Download Drivers</a>
+<img id="logo" src="https://beakerandwrench.com/cdn/shop/files/BEAKER_WRENCH_LOGO_2.png?v=1713562539&width=600" alt="Beaker &amp; Wrench" />
+
+<button id="btnRetrieve" class="btn">RETRIEVE FIRMWARE FROM SERVER</button>
+
+<div id="listFw"></div>
+
+<button id="btnFlashV8" class="btn">FLASH V8</button>
+<button id="btnFlashDongle" class="btn">FLASH DONGLE</button>
+
+<div id="consoleOut"></div>
+
+<button id="btnReadChip" class="btn">Read Chip</button>
+<div id="lblFooter">SmartController Firmware Flasher · © 2026 Beaker &amp; Wrench</div>
+</div><!-- /.stage -->
+
+<!-- Info modal -->
+<div id="modal" class="modal-backdrop">
+  <div class="modal-box">
+    <div class="modal-header" id="modalTitle">Notice</div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer"><button class="btn" id="modalOk">OK</button></div>
+  </div>
+</div>
+
+<!-- Password modal -->
+<div id="pwModal" class="modal-backdrop">
+  <div class="modal-box">
+    <div class="modal-header">Enter password to retrieve latest firmware</div>
+    <div class="modal-body">
+      <input id="pwInput" type="password" autocomplete="off" spellcheck="false"
+             style="width:100%;padding:10px 12px;font-family:var(--font-mono);font-size:14px;color:var(--text);background:var(--white);border:1px solid var(--line);border-radius:8px;outline:none;transition:border-color 120ms ease, box-shadow 120ms ease"
+             onfocus="this.style.borderColor='var(--purple-400)';this.style.boxShadow='0 0 0 3px rgba(123,104,238,0.20)';"
+             onblur="this.style.borderColor='var(--line)';this.style.boxShadow='none';" />
+    </div>
+    <div class="modal-footer">
+      <button class="btn" id="pwCancel">Cancel</button>
+      <button class="btn primary" id="pwOk">Unlock</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  // esptool-js ESM bundle from jsDelivr. Uses Web Serial directly.
+  import { ESPLoader, Transport } from "https://cdn.jsdelivr.net/npm/esptool-js@0.5.3/+esm";
+
+  // ---------- DOM ----------
+  const consoleOut   = document.getElementById("consoleOut");
+  const listFw       = document.getElementById("listFw");
+  const btnConnect    = document.getElementById("btnConnect");
+  const btnDisconnect = document.getElementById("btnDisconnect");
+  const btnRetrieve   = document.getElementById("btnRetrieve");
+  const btnFlashV8   = document.getElementById("btnFlashV8");
+  const btnFlashDongle = document.getElementById("btnFlashDongle");
+
+  // Firmware payloads keyed by filename, stored as ArrayBuffer so they can
+  // come from either a Drive download or any other source identically.
+  const firmwareFiles = new Map();
+  let selectedFwName = null;
+  let selectedPort = null; // SerialPort chosen via Connect to Board
+  let busy = false;
+
+  // ---------- Console helpers ----------
+  function appendOutput(text) {
+    if (text === undefined || text === null) return;
+    const atBottom = consoleOut.scrollTop + consoleOut.clientHeight >= consoleOut.scrollHeight - 4;
+    consoleOut.appendChild(document.createTextNode(text + "\n"));
+    if (atBottom) consoleOut.scrollTop = consoleOut.scrollHeight;
+  }
+  function clearOutput() { consoleOut.textContent = ""; }
+
+  // ---------- Modal ----------
+  const modal = document.getElementById("modal");
+  const modalTitle = document.getElementById("modalTitle");
+  const modalBody  = document.getElementById("modalBody");
+  document.getElementById("modalOk").addEventListener("click", () => modal.classList.remove("show"));
+  function showModal(title, body) {
+    modalTitle.textContent = title;
+    modalBody.textContent = body;
+    modal.classList.add("show");
+  }
+
+  // ---------- Password prompt ----------
+  const pwModal  = document.getElementById("pwModal");
+  const pwInput  = document.getElementById("pwInput");
+  const pwOk     = document.getElementById("pwOk");
+  const pwCancel = document.getElementById("pwCancel");
+  function askPassword() {
+    return new Promise(resolve => {
+      pwInput.value = "";
+      pwModal.classList.add("show");
+      setTimeout(() => pwInput.focus(), 0);
+
+      const cleanup = (result) => {
+        pwModal.classList.remove("show");
+        pwOk.removeEventListener("click", onOk);
+        pwCancel.removeEventListener("click", onCancel);
+        pwInput.removeEventListener("keydown", onKey);
+        // Null out the field so the decrypted password doesn't linger in the DOM.
+        pwInput.value = "";
+        resolve(result);
+      };
+      const onOk     = () => cleanup(pwInput.value);
+      const onCancel = () => cleanup(null);
+      const onKey    = (e) => {
+        if (e.key === "Enter")  onOk();
+        if (e.key === "Escape") onCancel();
+      };
+      pwOk.addEventListener("click", onOk);
+      pwCancel.addEventListener("click", onCancel);
+      pwInput.addEventListener("keydown", onKey);
+    });
+  }
+
+  // ---------- Web Serial support check ----------
+  if (!("serial" in navigator)) {
+    appendOutput("Web Serial API is not available in this browser.");
+    appendOutput("Use Chrome or Edge on desktop and load this page over http(s)://, not file://.");
+    [btnConnect, btnFlashV8, btnFlashDongle].forEach(b => b.disabled = true);
+  }
+
+  // ---------- Firmware list ----------
+  function renderList() {
+    listFw.innerHTML = "";
+    if (firmwareFiles.size === 0) {
+      const div = document.createElement("div");
+      div.className = "item placeholder";
+      div.textContent = 'No firmware loaded — click "RETRIEVE FIRMWARE FROM SERVER".';
+      listFw.appendChild(div);
+      return;
+    }
+    for (const name of firmwareFiles.keys()) {
+      const div = document.createElement("div");
+      div.className = "item" + (name === selectedFwName ? " selected" : "");
+      div.textContent = name;
+      div.addEventListener("click", () => {
+        selectedFwName = name;
+        renderList();
+      });
+      listFw.appendChild(div);
+    }
+  }
+  renderList();
+
+  // ---------- Connect to Board ----------
+  // Note: Web Serial does not expose the OS COM port name to the page, so the
+  // label just reflects state rather than trying to show "COM3".
+  function setConnected(port) {
+    selectedPort = port;
+    if (port) {
+      btnConnect.textContent = "Board Connected — Change";
+      btnConnect.classList.add("connected");
+      btnDisconnect.classList.add("visible");
+    } else {
+      btnConnect.textContent = "Connect to Board";
+      btnConnect.classList.remove("connected");
+      btnDisconnect.classList.remove("visible");
+    }
+  }
+  btnDisconnect.addEventListener("click", async () => {
+    if (!selectedPort) return;
+    try {
+      // Ensure the port is closed in case a prior flash left it open.
+      if (selectedPort.readable || selectedPort.writable) {
+        try { await selectedPort.close(); } catch (_) {}
+      }
+      // Revoke Web Serial permission so the port disappears from getPorts().
+      if (typeof selectedPort.forget === "function") {
+        await selectedPort.forget();
+      }
+    } catch (e) {
+      appendOutput(`Disconnect warning: ${e.message || e}`);
+    }
+    setConnected(null);
+    appendOutput("Board disconnected.");
+  });
+  btnConnect.addEventListener("click", async () => {
+    if (!("serial" in navigator)) return;
+    try {
+      const port = await navigator.serial.requestPort();
+      setConnected(port);
+      appendOutput("Board connected.");
+    } catch (e) {
+      // user cancelled picker — silent
+    }
+  });
+  if ("serial" in navigator) {
+    navigator.serial.addEventListener?.("disconnect", (ev) => {
+      if (selectedPort && ev.target === selectedPort) {
+        setConnected(null);
+        appendOutput("Board disconnected.");
+      }
+    });
+  }
+
+  // ---------- Google Drive (service-account JWT flow, mirrors the C# build) ----------
+  // Credentials are AES-GCM encrypted with a key derived from the operator
+  // password via PBKDF2. Nothing useful lives in this file without that
+  // password. The decrypted material is zeroed the moment the download
+  // finishes (or fails).
+  const DRIVE_FOLDER_ID = "1k2oB-u5NEtcLVH7EBY7Z44BtKe0oMH6t";
+  const CRED_BLOB = {
+    salt_b64: "H2xlnp2FSarNKc6shus5zw==",
+    iv_b64:   "yaX/YrAE9Lt/hlDu",
+    ct_b64:   "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",
+    iter:     250000
+  };
+
+  function b64ToBytes(b64) {
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  function zero(bytes) {
+    if (bytes && bytes.fill) bytes.fill(0);
+  }
+  async function decryptCreds(password) {
+    const salt = b64ToBytes(CRED_BLOB.salt_b64);
+    const iv   = b64ToBytes(CRED_BLOB.iv_b64);
+    const ct   = b64ToBytes(CRED_BLOB.ct_b64);
+    const passBytes = new TextEncoder().encode(password);
+    const passKey = await crypto.subtle.importKey(
+      "raw", passBytes, "PBKDF2", false, ["deriveKey"]
+    );
+    const key = await crypto.subtle.deriveKey(
+      { name: "PBKDF2", salt, iterations: CRED_BLOB.iter, hash: "SHA-256" },
+      passKey,
+      { name: "AES-GCM", length: 256 },
+      false, ["decrypt"]
+    );
+    const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ct);
+    const text = new TextDecoder().decode(plain);
+    const creds = JSON.parse(text);
+    // Best-effort wipe of password bytes (strings themselves are immutable).
+    zero(passBytes);
+    zero(new Uint8Array(plain));
+    return creds; // { client_email, private_key }
+  }
+
+  let cachedAccessToken = null; // { token, expiresAt }
+
+  function b64urlFromBytes(bytes) {
+    let bin = "";
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function b64urlFromString(s) {
+    return b64urlFromBytes(new TextEncoder().encode(s));
+  }
+  function pemToDer(pem) {
+    const body = pem.replace(/-----BEGIN[^-]+-----|-----END[^-]+-----|\s/g, "");
+    const raw = atob(body);
+    const out = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out.buffer;
+  }
+  async function importSigningKey(pem) {
+    return crypto.subtle.importKey(
+      "pkcs8",
+      pemToDer(pem),
+      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+  }
+  async function getAccessToken(creds) {
+    const now = Math.floor(Date.now() / 1000);
+    if (cachedAccessToken && cachedAccessToken.expiresAt - 60 > now) {
+      return cachedAccessToken.token;
+    }
+    const header = { alg: "RS256", typ: "JWT" };
+    const claim  = {
+      iss:   creds.client_email,
+      scope: "https://www.googleapis.com/auth/drive.readonly",
+      aud:   "https://oauth2.googleapis.com/token",
+      exp:   now + 3600,
+      iat:   now
+    };
+    const unsigned = b64urlFromString(JSON.stringify(header)) + "." +
+                     b64urlFromString(JSON.stringify(claim));
+    const key = await importSigningKey(creds.private_key);
+    const sig = await crypto.subtle.sign(
+      "RSASSA-PKCS1-v1_5",
+      key,
+      new TextEncoder().encode(unsigned)
+    );
+    const jwt = unsigned + "." + b64urlFromBytes(new Uint8Array(sig));
+
+    const body = new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion:  jwt
+    });
+    const resp = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body
+    });
+    if (!resp.ok) {
+      const txt = await resp.text();
+      throw new Error(`Token exchange failed (${resp.status}): ${txt}`);
+    }
+    const json = await resp.json();
+    cachedAccessToken = {
+      token: json.access_token,
+      expiresAt: now + Number(json.expires_in || 3600)
+    };
+    return cachedAccessToken.token;
+  }
+  async function driveListFiles(token, folderId) {
+    const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
+    const url = `https://www.googleapis.com/drive/v3/files` +
+                `?q=${q}` +
+                `&fields=${encodeURIComponent("files(id,name,mimeType)")}` +
+                `&supportsAllDrives=true&includeItemsFromAllDrives=true` +
+                `&pageSize=1000`;
+    const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!resp.ok) throw new Error(`Drive list failed (${resp.status}): ${await resp.text()}`);
+    const json = await resp.json();
+    return json.files || [];
+  }
+  async function driveDownloadFile(token, fileId) {
+    const url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}` +
+                `?alt=media&supportsAllDrives=true`;
+    const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!resp.ok) throw new Error(`Drive download failed (${resp.status}): ${await resp.text()}`);
+    return await resp.arrayBuffer();
+  }
+
+  btnRetrieve.addEventListener("click", async () => {
+    if (busy) return;
+    const password = await askPassword();
+    if (password === null) return; // user cancelled
+
+    busy = true;
+    btnRetrieve.disabled = true;
+    let creds = null;
+    try {
+      clearOutput();
+      try {
+        creds = await decryptCreds(password);
+      } catch (_) {
+        appendOutput("Invalid password.");
+        showModal("Invalid password", "Invalid password.");
+        return;
+      }
+      appendOutput("Connecting to Server....");
+      const token = await getAccessToken(creds);
+      const files = await driveListFiles(token, DRIVE_FOLDER_ID);
+      if (!files.length) {
+        appendOutput("No files found in folder.");
+        return;
+      }
+      firmwareFiles.clear();
+      selectedFwName = null;
+      for (const f of files) {
+        if (f.mimeType && f.mimeType.startsWith("application/vnd.google-apps.")) {
+          appendOutput(`Skipped Google Doc: ${f.name}`);
+          continue;
+        }
+        appendOutput(`Downloading: ${f.name}...`);
+        try {
+          const buf = await driveDownloadFile(token, f.id);
+          firmwareFiles.set(f.name, buf);
+          if (!selectedFwName) selectedFwName = f.name;
+        } catch (e) {
+          appendOutput(`Skipped ${f.name}: ${e.message || e}`);
+        }
+        renderList();
+      }
+      appendOutput("Firmware Downloaded Successfully");
+    } catch (err) {
+      console.error(err);
+      appendOutput(`Download error: ${err && err.message ? err.message : err}`);
+      showModal("Download failed", err && err.message ? err.message : String(err));
+    } finally {
+      // Wipe every trace of the decrypted material and the short-lived
+      // Google access token. Next retrieval re-prompts for the password.
+      if (creds) {
+        creds.client_email = "";
+        creds.private_key  = "";
+        creds = null;
+      }
+      cachedAccessToken = null;
+      btnRetrieve.disabled = false;
+      busy = false;
+    }
+  });
+
+  // ---------- Flash ----------
+  function bufferToBinaryString(buf) {
+    // esptool-js expects a binary "string" (each char is one byte)
+    const view = new Uint8Array(buf);
+    let s = "";
+    const CHUNK = 0x8000;
+    for (let i = 0; i < view.length; i += CHUNK) {
+      s += String.fromCharCode.apply(null, view.subarray(i, i + CHUNK));
+    }
+    return s;
+  }
+
+  async function pickPort() {
+    if (selectedPort) return selectedPort;
+    const port = await navigator.serial.requestPort();
+    setConnected(port);
+    return port;
+  }
+
+  async function flashFirmware(chip) {
+    if (busy) return;
+    if (!selectedFwName) {
+      showModal("No firmware selected", "Load firmware files first, then pick one from the list.");
+      return;
+    }
+    const buf = firmwareFiles.get(selectedFwName);
+    if (!buf) {
+      showModal("Missing file", "Selected firmware is no longer available.");
+      return;
+    }
+
+    busy = true;
+    clearOutput();
+    let transport = null;
+    let esploader = null;
+
+    const terminal = {
+      clean: () => { clearOutput(); },
+      writeLine: (d) => appendOutput(d),
+      write:     (d) => { if (d) appendOutput(String(d).replace(/\n$/, "")); }
+    };
+
+    try {
+      const port = await pickPort();
+      appendOutput(`Opening serial port for ${chip}...`);
+      transport = new Transport(port, true);
+
+      // Match the C# behaviour: esptool.exe is invoked without --baud, so it
+       // stays at 115200 for the whole session. 921600 is faster but the stub
+       // re-baud step trips some CP210x/CH340 adapters, producing
+       // "Invalid head of packet" noise mid-flash.
+      esploader = new ESPLoader({
+        transport,
+        baudrate: 115200,
+        romBaudrate: 115200,
+        terminal,
+        debugLogging: false
+      });
+
+      const detected = await esploader.main();
+      appendOutput(`Detected chip: ${detected}`);
+
+      const data = bufferToBinaryString(buf);
+      appendOutput(`Flashing ${selectedFwName} (${buf.byteLength} bytes) at 0x0000...`);
+
+      await esploader.writeFlash({
+        fileArray: [{ data, address: 0x0000 }],
+        flashSize: "keep",
+        flashMode: "keep",
+        flashFreq: "keep",
+        eraseAll: false,
+        compress: true,
+        reportProgress: (_idx, written, total) => {
+          const pct = Math.floor((written / total) * 100);
+          appendOutput(`Writing: ${pct}% (${written}/${total})`);
+        },
+        calculateMD5Hash: null
+      });
+
+      appendOutput("Hard resetting via RTS pin...");
+      await esploader.hardReset();
+      appendOutput("Hash of data verified.");
+      appendOutput("Hard resetting...");
+      showModal("Success", "Firmware Flash Successful!");
+    } catch (err) {
+      console.error(err);
+      appendOutput(`ERROR: ${err && err.message ? err.message : err}`);
+      showModal("Flash failed", err && err.message ? err.message : String(err));
+    } finally {
+      try { if (transport) await transport.disconnect(); } catch (_) {}
+      busy = false;
+    }
+  }
+
+  btnFlashV8.addEventListener("click", () => flashFirmware("esp32"));
+  btnFlashDongle.addEventListener("click", () => flashFirmware("esp32s3"));
+
+  // Initial banner
+  appendOutput("SmartController Firmware Flasher — web edition");
+  appendOutput("1. Click Connect to Board and pick your device (e.g. COM3).");
+  appendOutput("2. Click RETRIEVE FIRMWARE FROM SERVER to download the latest firmware.");
+  appendOutput("3. Pick a firmware and hit FLASH V8 (ESP32) or FLASH DONGLE (ESP32-S3).");
+
+  // ---------- Responsive scaling ----------
+  // The layout was drawn against a fixed 680×993 canvas. Rather than reflow every
+  // absolute-positioned element, scale the whole stage to fit the viewport.
+  const stage = document.getElementById("stage");
+  const DESIGN_W = 680, DESIGN_H = 993;
+  function fitStage() {
+    const pad = 16;
+    const availW = Math.max(240, window.innerWidth  - pad * 2);
+    const availH = Math.max(240, window.innerHeight - pad * 2);
+    const scale = Math.min(availW / DESIGN_W, availH / DESIGN_H, 1.6);
+    stage.style.transform = `scale(${scale})`;
+  }
+  fitStage();
+  window.addEventListener("resize", fitStage);
+
+  // Clear a console text selection as soon as the user clicks anywhere outside
+  // the console (elements with user-select:none don't drop the selection on
+  // their own because they can't receive a new selection range).
+  document.addEventListener("mousedown", (e) => {
+    if (!consoleOut.contains(e.target)) {
+      const sel = window.getSelection();
+      if (sel && sel.toString().length) sel.removeAllRanges();
+    }
+  });
+</script>
+</body>
+</html>
