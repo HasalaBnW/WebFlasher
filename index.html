@@ -257,6 +257,33 @@
   }
   #listFw .item.placeholder { color: var(--text-soft); font-style: italic; cursor: default; }
 
+  /* Context menu */
+  .ctx-menu {
+    position: fixed;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: var(--shadow-lg);
+    padding: 4px 0;
+    min-width: 160px;
+    z-index: 200;
+    display: none;
+    font-family: var(--font-ui);
+    font-size: 13px;
+  }
+  .ctx-menu.show { display: block; }
+  .ctx-menu .ctx-item {
+    padding: 7px 14px;
+    cursor: pointer;
+    color: var(--text);
+    white-space: nowrap;
+    transition: background 100ms ease, color 100ms ease;
+  }
+  .ctx-menu .ctx-item:hover {
+    background: var(--purple-50);
+    color: var(--purple-700);
+  }
+
   #btnFlashV8, #btnFlashDongle {
     position: absolute; top: 472px;
     height: 100px; font-size: 18px;
@@ -367,6 +394,11 @@
 <button id="btnReadChip" class="btn">Read Chip</button>
 <div id="lblFooter">SmartController Firmware Flasher · © 2026 Beaker &amp; Wrench</div>
 </div><!-- /.stage -->
+
+<!-- Context menu -->
+<div id="ctxMenu" class="ctx-menu">
+  <div class="ctx-item" id="ctxDownload">Download</div>
+</div>
 
 <!-- Info modal -->
 <div id="modal" class="modal-backdrop">
@@ -495,6 +527,35 @@
     [btnConnect, btnFlashV8, btnFlashDongle].forEach(b => b.disabled = true);
   }
 
+  // ---------- Context menu ----------
+  const ctxMenu     = document.getElementById("ctxMenu");
+  const ctxDownload = document.getElementById("ctxDownload");
+  let ctxTargetName = null;
+
+  function hideCtxMenu() { ctxMenu.classList.remove("show"); ctxTargetName = null; }
+  document.addEventListener("click", hideCtxMenu);
+  document.addEventListener("contextmenu", (e) => {
+    if (!ctxMenu.contains(e.target)) hideCtxMenu();
+  });
+  window.addEventListener("blur", hideCtxMenu);
+  window.addEventListener("resize", hideCtxMenu);
+
+  ctxDownload.addEventListener("click", () => {
+    if (!ctxTargetName) return;
+    const buf = firmwareFiles.get(ctxTargetName);
+    if (!buf) return;
+    const blob = new Blob([buf], { type: "application/octet-stream" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href = url;
+    a.download = ctxTargetName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    hideCtxMenu();
+  });
+
   // ---------- Firmware list ----------
   function renderList() {
     listFw.innerHTML = "";
@@ -512,6 +573,16 @@
       div.addEventListener("click", () => {
         selectedFwName = name;
         renderList();
+      });
+      div.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        ctxTargetName = name;
+        selectedFwName = name;
+        renderList();
+        ctxMenu.style.left = e.clientX + "px";
+        ctxMenu.style.top  = e.clientY + "px";
+        ctxMenu.classList.add("show");
       });
       listFw.appendChild(div);
     }
@@ -684,7 +755,7 @@
     return cachedAccessToken.token;
   }
   async function driveListFiles(token, folderId) {
-    const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
+    const q = encodeURIComponent(`'${folderId}' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'`);
     const url = `https://www.googleapis.com/drive/v3/files` +
                 `?q=${q}` +
                 `&fields=${encodeURIComponent("files(id,name,mimeType)")}` +
@@ -727,23 +798,28 @@
         appendOutput("No files found in folder.");
         return;
       }
+
       firmwareFiles.clear();
       selectedFwName = null;
-      for (const f of files) {
-        if (f.mimeType && f.mimeType.startsWith("application/vnd.google-apps.")) {
-          appendOutput(`Skipped Google Doc: ${f.name}`);
-          continue;
-        }
-        appendOutput(`Downloading: ${f.name}...`);
-        try {
-          const buf = await driveDownloadFile(token, f.id);
-          firmwareFiles.set(f.name, buf);
-          if (!selectedFwName) selectedFwName = f.name;
-        } catch (e) {
-          appendOutput(`Skipped ${f.name}: ${e.message || e}`);
-        }
-        renderList();
+      const binFiles = files.filter(f => f.name.toLowerCase().endsWith(".bin"));
+      if (!binFiles.length) {
+        appendOutput("No .bin firmware files found in folder.");
+        return;
       }
+      appendOutput(`Downloading ${binFiles.length} file(s)...`);
+      const results = await Promise.allSettled(
+        binFiles.map(f => driveDownloadFile(token, f.id).then(buf => ({ name: f.name, buf })))
+      );
+      for (const r of results) {
+        if (r.status === "fulfilled") {
+          firmwareFiles.set(r.value.name, r.value.buf);
+          if (!selectedFwName) selectedFwName = r.value.name;
+          appendOutput(`Downloaded: ${r.value.name}`);
+        } else {
+          appendOutput(`Skipped: ${r.reason}`);
+        }
+      }
+      renderList();
       appendOutput("Firmware Downloaded Successfully");
     } catch (err) {
       console.error(err);
